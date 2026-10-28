@@ -1,14 +1,13 @@
-group = "app.template"
+group = "app.pielm"
 
 patches {
-    // TODO: Update this section with your project details.
     about {
-        name = "UserXYZ Patches"
-        description = "Patches for apps I like"
-        source = "git@github.com:UserXYZ/morphe-patches.git"
-        author = "Awesome dev"
-        contact = "na"
-        website = "na"
+        name = "Piko GIF Patch"
+        description = "Native animated GIF (.gif) download and conversion support for X/Twitter (companion patch for Piko)"
+        source = "git@github.com:Piel-M/piko-gif-patch.git"
+        author = "Piel-M"
+        contact = "https://github.com/Piel-M/piko-gif-patch/issues"
+        website = "https://github.com/Piel-M/piko-gif-patch"
         license = "GPLv3"
     }
 }

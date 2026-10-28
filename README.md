@@ -1,18 +1,19 @@
-# 👋🧩 Morphe Patches template
+# 🎞️🧩 Piko GIF Patch
 
-Template repository for Morphe Patches.
+Companion patch for X/Twitter (`com.twitter.android`) that adds native animated `.gif` download & conversion support alongside [Piko](https://github.com/crimera/piko).
 
 ## ❓ About
 
-Patches for apps I like.
-
-<!-- TODO: Update this about section with a brief introduction/summary about this repo and what it offers. -->
+On X/Twitter, animated GIFs are served as looped `.mp4` streams (`tweet_video/*.mp4`). This patch adds:
+- **Case A (Native MP4 → GIF89a conversion)**: Automatically decodes and converts Twitter GIF streams into genuine looping `.gif` files saved in `Pictures/Twitter/`.
+- **Case B (Piko Native Downloader & Inline Download Button integration)**: Labels GIFs as `GIF` inside Piko's download dialog and offers both `GIF (.gif)` and `MP4 (.mp4)` variants.
+- **Case C (Native X media menu integration)**: Also converts GIFs when downloaded from X's built-in 3-dots / long-press media menu.
 
 ### How to use these patches
 
-Click the button below, or manually add this repo url to Morphe Manager: https://github.com/xyz-user/xyz-patches
+Click the button below, or manually add this repo url to Morphe Manager (with **Expert Mode** enabled to combine with Piko): https://github.com/Piel-M/piko-gif-patch
 
-<a href="https://morphe.software/add-source?github=xyz-user/xyz-patches">
+<a href="https://morphe.software/add-source?github=Piel-M/piko-gif-patch">
   <img src=".github/assets/add-to-morphe.svg" alt="Add to Morphe" height="48">
 </a>
 
@@ -100,4 +101,4 @@ See the [Morphe documentation](https://github.com/MorpheApp/morphe-documentation
 
 ## 📜 License
 
-UserXYZ Patches are licensed under the [GNU General Public License v3.0](LICENSE)
+Piko GIF Patch is licensed under the [GNU General Public License v3.0](LICENSE)
