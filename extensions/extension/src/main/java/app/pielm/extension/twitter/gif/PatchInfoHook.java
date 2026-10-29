@@ -5,18 +5,21 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.preference.Preference;
-import android.preference.PreferenceCategory;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
 import android.text.Spannable;
 import android.text.SpannableString;
-import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 
+import java.lang.reflect.Constructor;
+
 /**
- * Adds an "Add-ons" section to Piko's "Patch information" screen showing that the
- * Piko GIF Patch add-on is applied, its version and which GIF integrations were hooked.
+ * Displays the Piko GIF Patch add-on in Piko's "Patch information" screen:
+ * 1. Under "Informations sur la version" (category 0) right beneath "Patchs Piko":
+ *    - "Piko GIF Patch" -> "v1.2.0 • Inclus" (clickable, opens GitHub repo)
+ * 2. Under "Patchs" (category 1) alongside all other patches:
+ *    - "Téléchargement natif des GIF" -> "Inclus" (clickable, opens GitHub repo)
  */
 @SuppressWarnings({"deprecation", "unused"})
 public final class PatchInfoHook {
@@ -35,78 +38,90 @@ public final class PatchInfoHook {
     public static void onPatchInfoScreenCreated(Object fragment, PreferenceScreen screen) {
         if (screen == null) return;
         try {
-            if (screen.findPreference(KEY_PREFIX + "addon") != null) return;
+            if (screen.findPreference(KEY_PREFIX + "version") != null) return;
             Context context = screen.getContext();
 
-            PreferenceCategory category = newCategory(context);
-            category.setKey(KEY_PREFIX + "category");
-            category.setTitle(Strings.addonsCategory());
-            placeAfterFirstCategory(screen, category);
-
-            Preference addon = new Preference(context);
-            addon.setKey(KEY_PREFIX + "addon");
-            addon.setTitle(Strings.addonTitle());
-            addon.setSummary(coloredSummary(
-                    Strings.included() + " • " + Strings.addonDetails(GifPatchHooks.getPatchVersion())));
-            addon.setOnPreferenceClickListener(p -> {
-                try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    context.startActivity(intent);
-                } catch (Throwable t) {
-                    Log.w(TAG, "Unable to open repository page", t);
+            // 1. Add directly to "Informations sur la version" (verPref, index 0)
+            if (screen.getPreferenceCount() > 0) {
+                Preference p0 = screen.getPreference(0);
+                if (p0 instanceof PreferenceGroup) {
+                    PreferenceGroup verPref = (PreferenceGroup) p0;
+                    Preference versionPref = createButtonPreference(context);
+                    versionPref.setKey(KEY_PREFIX + "version");
+                    versionPref.setPersistent(false);
+                    versionPref.setTitle("Piko GIF Patch");
+                    versionPref.setSummary(coloredIncluded("v" + GifPatchHooks.getPatchVersion() + " • " + Strings.included()));
+                    versionPref.setOnPreferenceClickListener(p -> {
+                        openRepo(context);
+                        return true;
+                    });
+                    verPref.addPreference(versionPref);
                 }
-                return true;
-            });
-            category.addPreference(addon);
+            }
 
-            String integrations = GifPatchHooks.getEnabledIntegrations();
-            if (!TextUtils.isEmpty(integrations)) {
-                Preference details = new Preference(context);
-                details.setKey(KEY_PREFIX + "integrations");
-                details.setTitle(Strings.integrationTitle());
-                details.setSummary(integrations);
-                details.setSelectable(false);
-                category.addPreference(details);
+            // 2. Add to "Patchs" category (patPref, index 1)
+            if (screen.getPreferenceCount() > 1) {
+                Preference p1 = screen.getPreference(1);
+                if (p1 instanceof PreferenceGroup) {
+                    PreferenceGroup patPref = (PreferenceGroup) p1;
+                    Preference featurePref = new Preference(context);
+                    featurePref.setKey(KEY_PREFIX + "feature");
+                    featurePref.setPersistent(false);
+                    featurePref.setTitle(Strings.addonTitle());
+                    featurePref.setSummary(coloredIncluded(Strings.included()));
+                    featurePref.setOnPreferenceClickListener(p -> {
+                        openRepo(context);
+                        return true;
+                    });
+                    patPref.addPreference(featurePref);
+                }
+            }
+
+            // Fallback if screen had no categories
+            if (screen.getPreferenceCount() == 0) {
+                Preference fallback = new Preference(context);
+                fallback.setKey(KEY_PREFIX + "version");
+                fallback.setPersistent(false);
+                fallback.setTitle("Piko GIF Patch");
+                fallback.setSummary(coloredIncluded("v" + GifPatchHooks.getPatchVersion() + " • " + Strings.included()));
+                fallback.setOnPreferenceClickListener(p -> {
+                    openRepo(context);
+                    return true;
+                });
+                screen.addPreference(fallback);
             }
         } catch (Throwable t) {
             Log.e(TAG, "Unable to add GIF add-on to patch information screen", t);
         }
     }
 
-    /** Uses X's own category widget (as Piko does) so the section matches the rest of the screen. */
-    private static PreferenceCategory newCategory(Context context) {
+    private static void openRepo(Context context) {
         try {
-            Class<?> legacy = Class.forName("com.twitter.ui.widget.LegacyTwitterPreferenceCategory");
-            Object instance = legacy.getConstructor(Context.class).newInstance(context);
-            if (instance instanceof PreferenceCategory) {
-                return (PreferenceCategory) instance;
-            }
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+        } catch (Throwable t) {
+            Log.w(TAG, "Unable to open repository page", t);
+        }
+    }
+
+    private static Preference createButtonPreference(Context context) {
+        try {
+            Class<?> btnClass = Class.forName("app.morphe.extension.twitter.settings.widgets.ButtonPref");
+            Constructor<?> ctor = btnClass.getConstructor(Context.class);
+            return (Preference) ctor.newInstance(context);
         } catch (Throwable ignored) {
         }
-        return new PreferenceCategory(context);
+        return new Preference(context);
     }
 
-    /**
-     * Inserts the category right below Piko's "Version info" block instead of after the long
-     * list of patches. PreferenceGroup re-sorts its children by order when it is displayed.
-     */
-    private static void placeAfterFirstCategory(PreferenceGroup screen, PreferenceCategory category) {
-        int count = screen.getPreferenceCount();
-        if (count >= 1) {
-            for (int i = 0; i < count; i++) {
-                Preference p = screen.getPreference(i);
-                p.setOrder(i == 0 ? 0 : (i + 1) * 10);
-            }
-            category.setOrder(5);
-        }
-        screen.addPreference(category);
-    }
-
-    private static CharSequence coloredSummary(String text) {
+    private static CharSequence coloredIncluded(String text) {
         Spannable span = new SpannableString(text);
-        int end = Math.min(text.length(), Strings.included().length());
-        span.setSpan(new ForegroundColorSpan(Color.parseColor(INCLUDED_COLOR)), 0, end, 0);
+        String inc = Strings.included();
+        int idx = text.indexOf(inc);
+        if (idx >= 0) {
+            span.setSpan(new ForegroundColorSpan(Color.parseColor(INCLUDED_COLOR)), idx, idx + inc.length(), 0);
+        }
         return span;
     }
 }

@@ -17,6 +17,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,6 +53,7 @@ public final class Mp4ToGifConverter {
 
     public static void convert(File mp4File, File outputGifFile, ProgressListener listener) throws Exception {
         validateMp4(mp4File);
+        sanitizeMp4CttsBox(mp4File);
 
         List<Long> ptsUsList = extractSortedVideoPtsUs(mp4File);
         int totalSourceFrames = ptsUsList.size();
@@ -414,6 +416,68 @@ public final class Mp4ToGifConverter {
         boolean isMp4 = header[4] == 'f' && header[5] == 't' && header[6] == 'y' && header[7] == 'p';
         if (!isMp4) {
             throw new IOException("Downloaded file is not an MP4 (" + length + " bytes)");
+        }
+    }
+
+    /**
+     * Twitter's MP4 muxer ("Twitter-vork muxer") writes the 'ctts' (Composition Time to Sample)
+     * atom with flags = 1 (header 0x00000001). Android's native libstagefright parser
+     * (SampleTable.cpp) strictly enforces `if (U32_AT(header) != 0) return ERROR_MALFORMED;`.
+     * When flags != 0, Stagefright rejects the track as malformed and MediaExtractor returns 0 tracks!
+     *
+     * This method scans MP4 metadata boxes and zeroes out the 4-byte version/flags header of 'ctts',
+     * allowing Android's MediaExtractor, MediaMetadataRetriever, and MediaCodec to parse and decode
+     * the video track normally.
+     */
+    public static void sanitizeMp4CttsBox(File mp4File) {
+        if (mp4File == null || !mp4File.exists() || mp4File.length() < 16) {
+            return;
+        }
+        try (RandomAccessFile raf = new RandomAccessFile(mp4File, "rw")) {
+            sanitizeBoxes(raf, 0, raf.length());
+        } catch (Throwable t) {
+            Log.w(TAG, "Unable to sanitize MP4 ctts box", t);
+        }
+    }
+
+    private static void sanitizeBoxes(RandomAccessFile raf, long start, long end) throws IOException {
+        long pos = start;
+        byte[] typeBuf = new byte[4];
+        while (pos + 8 <= end) {
+            raf.seek(pos);
+            long size = raf.readInt() & 0xffffffffL;
+            raf.readFully(typeBuf);
+            String type = new String(typeBuf, "ISO-8859-1");
+
+            long hdrLen = 8;
+            if (size == 1) {
+                if (pos + 16 > end) break;
+                size = raf.readLong();
+                hdrLen = 16;
+            } else if (size == 0) {
+                size = end - pos;
+            }
+
+            if (size < hdrLen || pos + size > end) {
+                break;
+            }
+
+            if ("ctts".equals(type)) {
+                if (pos + hdrLen + 4 <= end) {
+                    raf.seek(pos + hdrLen);
+                    int vFlags = raf.readInt();
+                    if (vFlags != 0) {
+                        Log.i(TAG, "Sanitizing ctts box at " + pos + " (flags was 0x" + Integer.toHexString(vFlags) + ")");
+                        raf.seek(pos + hdrLen);
+                        raf.writeInt(0);
+                    }
+                }
+            } else if ("moov".equals(type) || "trak".equals(type) || "mdia".equals(type)
+                    || "minf".equals(type) || "stbl".equals(type) || "edts".equals(type)) {
+                sanitizeBoxes(raf, pos + hdrLen, pos + size);
+            }
+
+            pos += size;
         }
     }
 

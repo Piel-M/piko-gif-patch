@@ -109,6 +109,7 @@ public final class GifDownloadManager {
                 }
             });
             Log.i(TAG, "Downloaded " + tempMp4.length() + " bytes from " + urlString);
+            Mp4ToGifConverter.sanitizeMp4CttsBox(tempMp4);
 
             builder.setContentTitle(Strings.converting(fileName))
                     .setContentText(Strings.stepDecoding())
