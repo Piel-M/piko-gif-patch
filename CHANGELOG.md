@@ -1,3 +1,9 @@
+## [1.2.0](https://github.com/Piel-M/piko-gif-patch/compare/v1.1.0...v1.2.0) (2026-10-29)
+
+### ✨ New Features
+
+* sanitize MP4 ctts box for MediaCodec and display add-on in patch info ([d2187b0](https://github.com/Piel-M/piko-gif-patch/commit/d2187b0188215d54d0c88c51793f16b36004dcb2))
+
 ## [1.1.0](https://github.com/Piel-M/piko-gif-patch/compare/v1.0.0...v1.1.0) (2026-10-29)
 
 ### ✨ New Features

@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-10-29T08:27:02",
-  "description": "## [1.1.0](https://github.com/Piel-M/piko-gif-patch/compare/v1.0.0...v1.1.0) (2026-10-29)\n\n### ✨ New Features\n\n* use MediaCodec decoder, fix notifications and add patch info entry ([77274a1](https://github.com/Piel-M/piko-gif-patch/commit/77274a10451295ffa9c1c6d1c666afada5be7735))",
-  "download_url": "https://github.com/Piel-M/piko-gif-patch/releases/download/v1.1.0/patches-1.1.0.mpp",
+  "created_at": "2026-10-29T08:56:54",
+  "description": "## [1.2.0](https://github.com/Piel-M/piko-gif-patch/compare/v1.1.0...v1.2.0) (2026-10-29)\n\n### ✨ New Features\n\n* sanitize MP4 ctts box for MediaCodec and display add-on in patch info ([d2187b0](https://github.com/Piel-M/piko-gif-patch/commit/d2187b0188215d54d0c88c51793f16b36004dcb2))",
+  "download_url": "https://github.com/Piel-M/piko-gif-patch/releases/download/v1.2.0/patches-1.2.0.mpp",
   "signature_download_url": "",
-  "version": "1.1.0"
+  "version": "1.2.0"
 }
