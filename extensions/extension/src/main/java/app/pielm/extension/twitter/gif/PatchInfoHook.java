@@ -5,21 +5,29 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
 import android.preference.Preference;
+import android.preference.PreferenceCategory;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
 import android.text.Spannable;
 import android.text.SpannableString;
+import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 
-import java.lang.reflect.Constructor;
-
 /**
- * Displays the Piko GIF Patch add-on in Piko's "Patch information" screen:
- * 1. Under "Informations sur la version" (category 0) right beneath "Patchs Piko":
- *    - "Piko GIF Patch" -> "v1.2.0 • Inclus" (clickable, opens GitHub repo)
- * 2. Under "Patchs" (category 1) alongside all other patches:
- *    - "Téléchargement natif des GIF" -> "Inclus" (clickable, opens GitHub repo)
+ * Injects the Piko GIF Patch add-on into Piko's "Patch information" screen:
+ *
+ * 1. Under "Informations sur la version", directly underneath "Patchs de Piko":
+ *    - Title: "Add-ons"
+ *    - Summary: "Piko GIF Patch vX.X.X • Inclus"
+ *
+ * 2. Dedicated section between "Informations sur la version" and "Patchs":
+ *    - Section Category: "Add-ons"
+ *      - Item: "Piko GIF Patch" -> "vX.X.X • Inclus • Téléchargement natif des GIF"
+ *      - Item: "Intégrations GIF" -> list of hooked features
+ *
+ * 3. In the "Patchs" category:
+ *    - Item: "Téléchargement natif des GIF" -> "Inclus"
  */
 @SuppressWarnings({"deprecation", "unused"})
 public final class PatchInfoHook {
@@ -38,32 +46,125 @@ public final class PatchInfoHook {
     public static void onPatchInfoScreenCreated(Object fragment, PreferenceScreen screen) {
         if (screen == null) return;
         try {
-            if (screen.findPreference(KEY_PREFIX + "version") != null) return;
+            if (screen.findPreference(KEY_PREFIX + "version_under_patches") != null) return;
             Context context = screen.getContext();
 
-            // 1. Add directly to "Informations sur la version" (verPref, index 0)
+            // 1. Insert directly under "Patchs de Piko" inside Category 0 (Version info)
             if (screen.getPreferenceCount() > 0) {
                 Preference p0 = screen.getPreference(0);
                 if (p0 instanceof PreferenceGroup) {
                     PreferenceGroup verPref = (PreferenceGroup) p0;
-                    Preference versionPref = createButtonPreference(context);
-                    versionPref.setKey(KEY_PREFIX + "version");
-                    versionPref.setPersistent(false);
-                    versionPref.setTitle("Piko GIF Patch");
-                    versionPref.setSummary(coloredIncluded("v" + GifPatchHooks.getPatchVersion() + " • " + Strings.included()));
-                    versionPref.setOnPreferenceClickListener(p -> {
-                        openRepo(context);
-                        return true;
-                    });
-                    verPref.addPreference(versionPref);
+                    insertUnderPikoPatches(context, verPref);
                 }
             }
 
-            // 2. Add to "Patchs" category (patPref, index 1)
-            if (screen.getPreferenceCount() > 1) {
-                Preference p1 = screen.getPreference(1);
-                if (p1 instanceof PreferenceGroup) {
-                    PreferenceGroup patPref = (PreferenceGroup) p1;
+            // 2. Insert dedicated "Add-ons" category between Category 0 and Category 1
+            insertAddonsCategory(context, screen);
+
+            // 3. Add to "Patchs" category list as well
+            addToPatchesCategory(context, screen);
+
+        } catch (Throwable t) {
+            Log.e(TAG, "Unable to add GIF add-on to patch information screen", t);
+        }
+    }
+
+    /**
+     * Finds "Patchs de Piko" in the version group and places "Add-ons" immediately below it by order.
+     */
+    private static void insertUnderPikoPatches(Context context, PreferenceGroup verPref) {
+        int pikoIdx = -1;
+        int count = verPref.getPreferenceCount();
+        for (int i = 0; i < count; i++) {
+            Preference p = verPref.getPreference(i);
+            String key = p.getKey();
+            CharSequence title = p.getTitle();
+            if ((key != null && (key.contains("piko_patches") || key.contains("piko_title_piko_patches"))) ||
+                (title != null && title.toString().toLowerCase().contains("piko"))) {
+                pikoIdx = i;
+                break;
+            }
+        }
+
+        // Set explicit sequential orders on verPref items so the new item is placed exactly under pikoIdx
+        if (pikoIdx >= 0) {
+            for (int i = 0; i < count; i++) {
+                int order = (i <= pikoIdx) ? (i * 10) : ((i + 1) * 10);
+                verPref.getPreference(i).setOrder(order);
+            }
+        }
+
+        Preference addonPref = new Preference(context);
+        addonPref.setKey(KEY_PREFIX + "version_under_patches");
+        addonPref.setPersistent(false);
+        addonPref.setTitle(Strings.addonsCategory());
+        addonPref.setSummary(coloredIncluded("Piko GIF Patch v" + GifPatchHooks.getPatchVersion() + " • " + Strings.included()));
+        if (pikoIdx >= 0) {
+            addonPref.setOrder(pikoIdx * 10 + 5);
+        }
+        addonPref.setOnPreferenceClickListener(p -> {
+            openRepo(context);
+            return true;
+        });
+        verPref.addPreference(addonPref);
+    }
+
+    /**
+     * Adds an "Add-ons" category section between the version category and the patches list.
+     */
+    private static void insertAddonsCategory(Context context, PreferenceScreen screen) {
+        int count = screen.getPreferenceCount();
+
+        // Assign explicit orders to screen categories so addonsCat sits in the middle
+        if (count > 0) {
+            screen.getPreference(0).setOrder(10);
+        }
+        for (int i = 1; i < count; i++) {
+            screen.getPreference(i).setOrder((i + 2) * 10);
+        }
+
+        PreferenceCategory addonsCat = newCategory(context);
+        addonsCat.setKey(KEY_PREFIX + "category");
+        addonsCat.setPersistent(false);
+        addonsCat.setTitle(Strings.addonsCategory());
+        addonsCat.setOrder(20);
+        screen.addPreference(addonsCat);
+
+        // Add items AFTER addonsCat is attached to screen (avoids getNextId() NPE on null PreferenceManager)
+        Preference addonItem = new Preference(context);
+        addonItem.setKey(KEY_PREFIX + "addon_item");
+        addonItem.setPersistent(false);
+        addonItem.setTitle("Piko GIF Patch");
+        addonItem.setSummary(coloredIncluded(
+                "v" + GifPatchHooks.getPatchVersion() + " • " + Strings.included() + " (" + Strings.addonTitle() + ")"));
+        addonItem.setOnPreferenceClickListener(p -> {
+            openRepo(context);
+            return true;
+        });
+        addonsCat.addPreference(addonItem);
+
+        String integrations = GifPatchHooks.getEnabledIntegrations();
+        if (!TextUtils.isEmpty(integrations)) {
+            Preference integItem = new Preference(context);
+            integItem.setKey(KEY_PREFIX + "integrations");
+            integItem.setPersistent(false);
+            integItem.setTitle(Strings.integrationTitle());
+            integItem.setSummary(integrations);
+            integItem.setSelectable(false);
+            addonsCat.addPreference(integItem);
+        }
+    }
+
+    /**
+     * Also marks the feature as "Inclus" in the "Patchs" category.
+     */
+    private static void addToPatchesCategory(Context context, PreferenceScreen screen) {
+        int count = screen.getPreferenceCount();
+        if (count >= 2) {
+            Preference lastCat = screen.getPreference(count - 1);
+            if (lastCat instanceof PreferenceGroup) {
+                PreferenceGroup patPref = (PreferenceGroup) lastCat;
+                if (patPref.findPreference(KEY_PREFIX + "feature") == null) {
                     Preference featurePref = new Preference(context);
                     featurePref.setKey(KEY_PREFIX + "feature");
                     featurePref.setPersistent(false);
@@ -76,22 +177,6 @@ public final class PatchInfoHook {
                     patPref.addPreference(featurePref);
                 }
             }
-
-            // Fallback if screen had no categories
-            if (screen.getPreferenceCount() == 0) {
-                Preference fallback = new Preference(context);
-                fallback.setKey(KEY_PREFIX + "version");
-                fallback.setPersistent(false);
-                fallback.setTitle("Piko GIF Patch");
-                fallback.setSummary(coloredIncluded("v" + GifPatchHooks.getPatchVersion() + " • " + Strings.included()));
-                fallback.setOnPreferenceClickListener(p -> {
-                    openRepo(context);
-                    return true;
-                });
-                screen.addPreference(fallback);
-            }
-        } catch (Throwable t) {
-            Log.e(TAG, "Unable to add GIF add-on to patch information screen", t);
         }
     }
 
@@ -105,14 +190,20 @@ public final class PatchInfoHook {
         }
     }
 
-    private static Preference createButtonPreference(Context context) {
+    private static PreferenceCategory newCategory(Context context) {
         try {
-            Class<?> btnClass = Class.forName("app.morphe.extension.twitter.settings.widgets.ButtonPref");
-            Constructor<?> ctor = btnClass.getConstructor(Context.class);
-            return (Preference) ctor.newInstance(context);
+            Class<?> legacy = Class.forName("com.twitter.ui.widget.LegacyTwitterPreferenceCategory");
+            Object instance = legacy.getConstructor(Context.class).newInstance(context);
+            if (instance instanceof PreferenceCategory) {
+                PreferenceCategory cat = (PreferenceCategory) instance;
+                cat.setPersistent(false);
+                return cat;
+            }
         } catch (Throwable ignored) {
         }
-        return new Preference(context);
+        PreferenceCategory cat = new PreferenceCategory(context);
+        cat.setPersistent(false);
+        return cat;
     }
 
     private static CharSequence coloredIncluded(String text) {
