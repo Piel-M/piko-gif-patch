@@ -22,4 +22,6 @@ object Constants {
     )
 
     const val GIF_HOOKS_DESCRIPTOR = "Lapp/pielm/extension/twitter/gif/GifPatchHooks;"
+    const val PATCH_INFO_HOOK_DESCRIPTOR = "Lapp/pielm/extension/twitter/gif/PatchInfoHook;"
+    const val PATCH_VERSION = "1.0.0"
 }
