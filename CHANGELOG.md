@@ -1,3 +1,9 @@
+## [1.3.0](https://github.com/Piel-M/piko-gif-patch/compare/v1.2.0...v1.3.0) (2026-10-29)
+
+### ✨ New Features
+
+* show Add-ons section and place entry directly under Piko Patches ([d44840a](https://github.com/Piel-M/piko-gif-patch/commit/d44840abec6b7825217906733340e661212d99a7))
+
 ## [1.2.0](https://github.com/Piel-M/piko-gif-patch/compare/v1.1.0...v1.2.0) (2026-10-29)
 
 ### ✨ New Features
